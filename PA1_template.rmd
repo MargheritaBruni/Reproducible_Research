@@ -1,0 +1,174 @@
+---
+title: "Reproducible Analysis - Week 2 Assigment MB"
+output: html_document
+---
+
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+The variables included in this dataset are:  
+
+- steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+- date: The date on which the measurement was taken in YYYY-MM-DD format
+- interval: Identifier for the 5-minute interval in which measurement was taken
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+
+#1. Code for loading required library, reading in the dataset and understand data.
+
+```{r}
+setwd("C:/Users/mbruni/Desktop/Rdatasets/repdata_data_activity")
+library(dplyr)
+library(ggplot2)
+
+activity <- read.csv("activity.csv")
+
+summary(activity)
+head(activity)
+
+```
+
+#2. Histogram of the total number of steps taken each day and data preparation:  
+- change date type to date class 
+- removing NA
+- grouping data by day
+- change column names
+- plotting the histogram
+
+```{r}
+
+
+#  
+
+activity$date <- as.Date(as.character(activity$date))
+
+activityNA <- is.na(activity$steps)
+
+cleanActivity <- activity[!activityNA,]
+
+SummedDataByDay <- aggregate(activity$steps, by=list(activity$date), sum)
+
+names(SummedDataByDay)[1] ="date"
+names(SummedDataByDay)[2] ="totalsteps"
+
+
+ggplot(SummedDataByDay, aes(x = totalsteps)) +
+  geom_histogram(fill = "steelblue", binwidth=1000) +
+  labs(title = "Total Steps by Day", x = "Steps", y = "Frequency")
+
+```
+
+#3. What is mean total number of steps taken per day? Mean and median number of steps taken each day
+
+```{r}
+
+mean(SummedDataByDay$totalsteps,na.rm=TRUE)
+median(SummedDataByDay$totalsteps,na.rm=TRUE)
+
+```
+#4. What is the average daily activity pattern? Time series plot of the average number of steps taken: 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+
+```{r}
+
+nonNASubset <- activity[!activityNA,]
+MeanDataByInterval <- aggregate(nonNASubset$steps, by=list(nonNASubset$interval), mean)
+
+names(MeanDataByInterval)[1] ="interval"
+names(MeanDataByInterval)[2] ="steps"
+
+ggplot(MeanDataByInterval, aes(x = interval, y=steps)) +
+  labs(title = "Total Steps by Interval", x = "interval", y = "steps")+
+  geom_line(color="black") 
+
+```
+
+#5. Identify the 5-minute interval that, on average, contains the maximum number of steps
+
+```{r}
+Interval <- MeanDataByInterval[which.max(MeanDataByInterval$steps),]
+
+Interval
+```
+
+#6. Code to describe and show a strategy for imputing missing data by using mean interval steps from Mean Steps for that interval  
+
+- evaluate NA in data set
+- removing NA and generating mean activity
+
+```{r}
+missingData <- sum(activityNA)
+missingData
+
+activityData <- activity
+
+NAactivityData <- activityData[is.na(activityData$steps),]
+cleanActivityData <- activityData[!is.na(activityData$steps),]
+
+MeanDataInterval <- aggregate(cleanActivityData$steps, by=list(cleanActivityData$interval), sum)
+
+names(MeanDataInterval)[1] ="interval"
+names(MeanDataInterval)[2] ="steps"
+
+activityData<- activity
+missingData <- is.na(activityData$steps)
+meanData <- tapply(cleanActivityData$steps, cleanActivityData$interval, mean, na.rm=TRUE, simplify=TRUE)
+activityData$steps[missingData] <- meanData[as.character(activityData$interval[missingData])]
+
+sum(missingData)
+
+
+```
+
+#7. Are there differences in activity patterns between weekdays and weekends? Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r}
+AllActivityByDay <- aggregate(activityData$steps, by=list(activityData$date), sum)
+
+names(AllActivityByDay)[1] ="date"
+names(AllActivityByDay)[2] ="totalsteps"
+head(AllActivityByDay)
+
+ggplot(AllActivityByDay, aes(x = totalsteps)) +
+  geom_histogram(fill = "red", binwidth=1000) +
+  labs(title = "Steps by Day", x = "Steps", y = "Frequency")
+
+
+mean(AllActivityByDay$totalsteps)
+median(AllActivityByDay$totalsteps)
+```
+
+Results: The mean did not change, while the median is higher.
+
+#8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+
+```{r}
+activityData$weekday <- weekdays(activityData$date)
+activityData$weekend <- ifelse (activityData$weekday == "Saturday" | activityData$weekday == "Sunday", "Weekend", "Weekday")
+
+head(activityData)
+
+
+
+WeekendWeekday <- aggregate(activityData$steps, by=list(activityData$weekend, activityData$interval), mean)
+names(WeekendWeekday)[1] ="weekend"
+names(WeekendWeekday)[2] ="interval"
+names(WeekendWeekday)[3] ="steps"
+
+ggplot(WeekendWeekday, aes(x = interval, y=steps, color=weekend)) +
+  geom_line() +
+  facet_grid(weekend ~ .) +
+  labs(title = "Mean of Steps by Interval", x = "Interval", y = "Steps")
+
+```
+
+Results: the activity in the weekends and weekday differ (more activity during weekend).
+
+library()
